@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sample Location Finder</title>
+<style>
+:root {
+  --bg:#FFC527; --panel:#fff; --text:#171717; --muted:#6b7280;
+  --line:#d7dbe0; --dark:#222; --soft:#eef0f3;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+.wrap{max-width:900px;margin:0 auto;padding:32px 18px 60px}
+.header{text-align:center;margin-bottom:26px}
+.header h1{margin:0 0 8px;font-size:clamp(30px,5vw,48px)}
+.header p{margin:0;color:var(--muted);font-size:17px}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 12px 30px rgba(0,0,0,.07)}
+.label{display:block;font-weight:700;margin-bottom:8px}
+.materials{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px}
+.material-btn{padding:14px 12px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:16px;font-weight:700;cursor:pointer}
+.material-btn.active{background:var(--dark);color:#fff;border-color:var(--dark)}
+
+.search-wrap{position:relative}
+#search{width:100%;padding:16px 18px;border:1px solid var(--line);border-radius:12px;font-size:18px;outline:none}
+#search:focus{border-color:#555;box-shadow:0 0 0 3px rgba(0,0,0,.08)}
+.dropdown{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 6px);max-height:360px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 30px rgba(0,0,0,.12);display:none}
+.dropdown.show{display:block}
+.option{display:block;width:100%;text-align:left;padding:13px 14px;border:0;border-bottom:1px solid #eee;background:#fff;cursor:pointer}
+.option:hover,.option.focused{background:#f2f3f5}
+.option-main{font-weight:700;font-size:16px}
+.option-sub{margin-top:4px;color:var(--muted);font-size:14px}
+.hint{margin:9px 2px 0;color:var(--muted);font-size:13px}
+
+.result{margin-top:24px;display:none}
+.result.show{display:block}
+.result-top{border-radius:16px;background:#202020;color:#fff;padding:22px}
+.result-material{font-size:13px;text-transform:uppercase;letter-spacing:.12em;opacity:.75}
+.result-name{font-size:27px;font-weight:800;margin-top:6px}
+.result-detail{font-size:17px;margin-top:6px;opacity:.9}
+
+.location-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.location-box{background:#fff;border:2px solid #222;border-radius:16px;padding:22px;text-align:center}
+.location-label{font-size:14px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.location-value{font-size:42px;font-weight:900;margin-top:4px}
+.no-results{padding:18px;text-align:center;color:var(--muted)}
+
+.footer-note{margin-top:20px;text-align:center;color:var(--muted);font-size:13px}
+@media(max-width:620px){
+  .wrap{padding:20px 12px 40px}
+  .materials{grid-template-columns:1fr}
+  .location-value{font-size:34px}
+  .location-grid{grid-template-columns:1fr 1fr}
+  .card{padding:16px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1>Sample Location Finder</h1>
+    <p>Choose a material, then search by collection, color, code, or size.</p>
+  </div>
+
+  <div class="card">
+    <label class="label">1. Choose Material</label>
+    <div class="materials">
+      <button class="material-btn" data-material="Carpet">Carpet</button>
+      <button class="material-btn" data-material="LVP & Wood">LVP & Wood</button>
+      <button class="material-btn" data-material="Tile">Tile</button>
+    </div>
+
+    <label class="label" for="search">2. Find Sample</label>
+    <div class="search-wrap">
+      <input id="search" type="text" autocomplete="off" placeholder="Choose a material first…" disabled>
+      <div class="dropdown" id="dropdown"></div>
+    </div>
+    <div class="hint">Start typing any part of the collection name, color name, color code, or size.</div>
+
+    <section class="result" id="result">
+      <div class="result-top">
+        <div class="result-material" id="resultMaterial"></div>
+        <div class="result-name" id="resultName"></div>
+        <div class="result-detail" id="resultDetail"></div>
+      </div>
+      <div class="location-grid">
+        <div class="location-box">
+          <div class="location-label">Bay</div>
+          <div class="location-value" id="resultBay"></div>
+        </div>
+        <div class="location-box">
+          <div class="location-label" id="locationLabel">Slot</div>
+          <div class="location-value" id="resultLocation"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="footer-note"></div>
+</div>
+
+<script>
+// ============================================================
+// SAMPLE LOCATION DATA
+// Edit rows here later if a sample moves.
+// ============================================================
+// ============================================================
+// EDIT SAMPLE LOCATIONS HERE
+// ============================================================
+// CARPET:
+//   collection, color, bay, shelf
+//
+// LVP & WOOD / TILE:
+//   collection, size, color, bay, slot
+//
+// To ADD a new sample:
+//   Copy one line, paste it underneath, and change the values.
+//
+// To MOVE a sample:
+//   Change only the bay / shelf / slot value.
+//
+// IMPORTANT:
+//   Keep the quotation marks, commas, braces { } and brackets [ ].
+// ============================================================
+
+const carpetSamples = [
+  { collection: "Winter Haven", color: "00101 Almond Silk", bay: "1", shelf: "1" },
+  { collection: "Lake Mabel", color: "00120 Woven Path", bay: "1", shelf: "1" },
+  { collection: "Lambert Mills", color: "00150 Lace", bay: "1", shelf: "1" },
+  { collection: "Lambert Mills", color: "00109 Boho", bay: "1", shelf: "1" },
+  { collection: "Watson Creek", color: "00109 Boho", bay: "1", shelf: "1" },
+  { collection: "Watson Creek", color: "00150 Lace", bay: "1", shelf: "1" },
+  { collection: "Dundee Garden", color: "00122 Café Latte", bay: "1", shelf: "2" },
+  { collection: "Winter Haven", color: "00114 Subtle Clay", bay: "1", shelf: "2" },
+  { collection: "Winter Haven", color: "00116 Warm Light", bay: "1", shelf: "2" },
+  { collection: "Dundee Garden", color: "00121 Beige Mist", bay: "1", shelf: "2" },
+  { collection: "Watson Creek", color: "00124 Fringe", bay: "1", shelf: "2" },
+  { collection: "Bernbrook", color: "Desert Light", bay: "1", shelf: "2" },
+  { collection: "Dundee Garden", color: "00120 Dune View", bay: "2", shelf: "2" },
+  { collection: "Bernbrook", color: "Sandy Shore", bay: "2", shelf: "2" },
+  { collection: "Lake Mabel", color: "00100 Light Breeze", bay: "2", shelf: "2" },
+  { collection: "Lambert Mills", color: "00103 Sepia", bay: "2", shelf: "2" },
+  { collection: "Watson Creek", color: "00103 Sepia", bay: "2", shelf: "DISPLAY" },
+  { collection: "Lambert Mills", color: "00124 Fringe", bay: "2", shelf: "2" },
+  { collection: "Naples Bay", color: "00141 Buff Beige", bay: "2", shelf: "2" },
+  { collection: "Centrella Estate", color: "00104 Sunlit Ivory", bay: "3", shelf: "1" },
+  { collection: "Palmer Court", color: "00120 Magnolia Bloom", bay: "3", shelf: "1" },
+  { collection: "Bernbrook", color: "Practical Beige", bay: "3", shelf: "1" },
+  { collection: "Dundee Garden", color: "00720 Baja", bay: "3", shelf: "1" },
+  { collection: "Naples Bay", color: "00151 Honey Glaze", bay: "3", shelf: "1" },
+  { collection: "Lake Mabel", color: "00200 Amber Glow", bay: "3", shelf: "1" },
+  { collection: "Dundee Garden", color: "00124 Chic Taupe", bay: "3", shelf: "2" },
+  { collection: "Winter Haven", color: "00115 Sculpture", bay: "3", shelf: "2" },
+  { collection: "Lake Mabel", color: "00500 Soft Rain", bay: "3", shelf: "2" },
+  { collection: "Lambert Mills", color: "00704 Wicker", bay: "3", shelf: "2" },
+  { collection: "Naples Bay", color: "00152 Sandy Nook", bay: "3", shelf: "2" },
+  { collection: "Watson Creek", color: "00704 Wicker", bay: "3", shelf: "2" },
+  { collection: "Winter Haven", color: "00508 Rock Crystal", bay: "4", shelf: "2" },
+  { collection: "Bernbrook", color: "00120 Soft Fleece", bay: "4", shelf: "2" },
+  { collection: "Lambert Mills", color: "00501 Velour", bay: "4", shelf: "2" },
+  { collection: "Watson Creek", color: "00501 Velour", bay: "4", shelf: "2" },
+  { collection: "Bernbrook", color: "00130 Ecru", bay: "4", shelf: "2" },
+  { collection: "Naples Bay", color: "00150 Ivory Mist", bay: "4", shelf: "2" },
+  { collection: "Naples Bay", color: "00140 Silver Slipper", bay: "4", shelf: "2" },
+  { collection: "Dundee Garden", color: "00523 Marble", bay: "5", shelf: "1" },
+  { collection: "Centrella Estate", color: "00105 Dried Herb", bay: "5", shelf: "1" },
+  { collection: "Lambert Mills", color: "00702 Rattan", bay: "5", shelf: "1" },
+  { collection: "Watson Creek", color: "00702 Rattan", bay: "5", shelf: "1" },
+  { collection: "Dundee Garden", color: "00520 Four Winds", bay: "5", shelf: "2" },
+  { collection: "Centrella Estate", color: "00100 Glacier", bay: "5", shelf: "2" },
+  { collection: "Lambert Mills", color: "00502 Chromatic", bay: "5", shelf: "2" },
+  { collection: "Watson Creek", color: "00502 Chromatic", bay: "5", shelf: "2" },
+  { collection: "Centrella Estate", color: "00500 Feather Pillow", bay: "6", shelf: "2" },
+  { collection: "Bernbrook", color: "00520 Fog", bay: "6", shelf: "2" },
+  { collection: "Bernbrook", color: "00522 Sterling", bay: "6", shelf: "2" },
+  { collection: "Naples Bay", color: "00542 Flannel", bay: "6", shelf: "2" },
+  { collection: "Naples Bay", color: "00540 Grey Heather", bay: "6", shelf: "2" },
+  { collection: "Palmer Court", color: "00122 Ornamental Gate", bay: "7", shelf: "1" },
+  { collection: "Palmer Court", color: "00700 Biscotti", bay: "7", shelf: "1" },
+  { collection: "Dundee Garden", color: "00123 Stonecrest", bay: "7", shelf: "1" },
+  { collection: "Palmer Court", color: "00121 Owl", bay: "7", shelf: "1" },
+  { collection: "Centrella Estate", color: "00103 Sandy Cove", bay: "7", shelf: "2" },
+  { collection: "Winter Haven", color: "00113 Cameo", bay: "7", shelf: "2" },
+  { collection: "Centrella Estate", color: "00106 Blondy", bay: "7", shelf: "2" },
+  { collection: "Naples Bay", color: "00143 Dry Creek", bay: "7", shelf: "2" },
+  { collection: "Naples Bay", color: "00740 Good Earth", bay: "7", shelf: "2" },
+  { collection: "Palmer Court", color: "00220 Croissant", bay: "8", shelf: "1" },
+  { collection: "Bernbrook", color: "00720 Winter Dunes", bay: "8", shelf: "2" },
+  { collection: "Bernbrook", color: "00123 Grecian Tan", bay: "8", shelf: "2" },
+  { collection: "Lambert Mills", color: "00701 Suede", bay: "8", shelf: "2" },
+  { collection: "Watson Creek", color: "00701 Suede", bay: "8", shelf: "2" },
+  { collection: "Dundee Garden", color: "00721 Mocha", bay: "9", shelf: "1" },
+  { collection: "Centrella Estate", color: "00700 Sahara", bay: "9", shelf: "1" },
+  { collection: "Palmer Court", color: "00721 Roasted Coffee", bay: "9", shelf: "1" },
+  { collection: "Palmer Court", color: "00500 Cloudy Skies", bay: "9", shelf: "1" },
+  { collection: "Palmer Court", color: "00720 Barely There", bay: "9", shelf: "2" },
+  { collection: "Dundee Garden", color: "00722 Hideaway", bay: "9", shelf: "2" },
+  { collection: "Winter Haven", color: "00111 Chic Greige", bay: "9", shelf: "2" },
+  { collection: "Palmer Court", color: "00521 Hammerhead", bay: "9", shelf: "2" },
+  { collection: "Belmont Court", color: "00105 Bare Mineral", bay: "3", shelf: "2" },
+  { collection: "Belmont Court", color: "00107 Tassel", bay: "3", shelf: "1" },
+  { collection: "Belmont Court", color: "00540 Silver Mist", bay: "5", shelf: "2" },
+  { collection: "Belmont Court", color: "00715 Perfect Taupe", bay: "8", shelf: "2" },
+];
+
+const lvpSamples = [
+  { collection: "Rio Duvall", size: "9x72", color: "1134 Alpine", bay: "1", slot: "Not Assigned" },
+  { collection: "Tortosa Ridge", size: "9x72", color: "1179 Warm Beige", bay: "1", slot: "Not Assigned" },
+  { collection: "Layton Lake", size: "7x48", color: "7089 Wild Dunes", bay: "2", slot: "Not Assigned" },
+  { collection: "Bandera", size: "7x48", color: "7066 Barrel Oak", bay: "2", slot: "Not Assigned" },
+  { collection: "Del Oro Point", size: "7x59", color: "1231 Gilded Linen", bay: "6", slot: "1" },
+  { collection: "Layton Lake", size: "7x48", color: "5220 Warm Gray", bay: "6", slot: "1" },
+  { collection: "Bryan Crossing", size: "9x72", color: "02100 Kent Oak", bay: "6", slot: "2" },
+  { collection: "Tortosa Ridge", size: "9x72", color: "5221 Earthen Brown", bay: "6", slot: "2" },
+  { collection: "Bryan Crossing", size: "9x72", color: "02096 Cambridge Elm", bay: "6", slot: "3" },
+  { collection: "Del Oro Point", size: "7x59", color: "5226 Vintage Pearl", bay: "6", slot: "3" },
+  { collection: "Belinna Falls", size: "9x60", color: "5274 Yosemite", bay: "6", slot: "4" },
+  { collection: "Belinna Falls", size: "9x60", color: "5275 Glacier", bay: "6", slot: "5" },
+  { collection: "Bandera", size: "7x48", color: "5228 Earthy Taupe", bay: "6", slot: "6" },
+  { collection: "Heartland Ranch", size: "9x60", color: "1187 Genuine Greige", bay: "6", slot: "6" },
+  { collection: "Belinna Falls", size: "9x60", color: "2139 Everglades", bay: "6", slot: "7" },
+  { collection: "Bandera", size: "7x48", color: "257 French Oak", bay: "6", slot: "8" },
+  { collection: "Layton Lake", size: "7x48", color: "2094 Soft Beige", bay: "6", slot: "8" },
+  { collection: "Barbary Coast", size: "9x72", color: "04069 Wildwood Trail Oak", bay: "6", slot: "8" },
+  { collection: "Layton Lake", size: "7x48", color: "5091 Lighthouse", bay: "6", slot: "9" },
+  { collection: "Mystic Estates", size: "9x60", color: "1189 Mineral Grey", bay: "6", slot: "9" },
+  { collection: "Barbary Coast", size: "9x72", color: "04068 Urban Hearth Oak", bay: "6", slot: "9" },
+  { collection: "Del Oro Point", size: "7x59", color: "1182 Moonstone Grey", bay: "6", slot: "10" },
+  { collection: "Del Oro Point", size: "7x59", color: "2140 Faded Smoke", bay: "6", slot: "10" },
+  { collection: "Layton Lake", size: "7x48", color: "1055 Silver Dollar", bay: "7", slot: "1" },
+  { collection: "Rio Duvall", size: "9x72", color: "1135 Tundra", bay: "7", slot: "1" },
+  { collection: "Barbary Coast", size: "9x72", color: "05110 Loft Oak", bay: "7", slot: "1" },
+  { collection: "Belinna Falls", size: "9x60", color: "1227 White Sands", bay: "7", slot: "2" },
+  { collection: "Emerald Hollow", size: "9x72", color: "01024 Conch Ash", bay: "7", slot: "2" },
+  { collection: "Barbary Coast", size: "9x72", color: "07048 Ashwood Ember Oak", bay: "7", slot: "2" },
+  { collection: "Bryan Crossing", size: "9x72", color: "02098 Bedford Oak", bay: "7", slot: "3" },
+  { collection: "Rio Duvall", size: "9x72", color: "2069 Escape", bay: "7", slot: "3" },
+  { collection: "Emerald Hollow", size: "9x72", color: "05025 Flaxen Ash", bay: "7", slot: "4" },
+  { collection: "Emerald Hollow", size: "9x72", color: "05028 Sea Salt Oak", bay: "7", slot: "4" },
+  { collection: "Bryan Crossing", size: "9x72", color: "2091A Ravenswood Oak", bay: "7", slot: "5" },
+  { collection: "Del Oro Point", size: "7x59", color: "2099 Sunlit Beige", bay: "7", slot: "5" },
+  { collection: "Del Oro Point", size: "7x59", color: "6044 Antique Copper", bay: "7", slot: "6" },
+  { collection: "Heartland Ranch", size: "9x60", color: "2105 Cozy Taupe", bay: "7", slot: "6" },
+  { collection: "Del Oro Point", size: "7x59", color: "2098 Honey Gold", bay: "7", slot: "7" },
+  { collection: "Del Oro Point", size: "7x59", color: "2142 Warm Buff", bay: "7", slot: "7" },
+  { collection: "Rio Duvall", size: "9x72", color: "1136 Wander", bay: "7", slot: "7" },
+  { collection: "Bandera", size: "7x48", color: "7322 Toasted Sienna", bay: "7", slot: "8" },
+  { collection: "Mystic Estates", size: "9x60", color: "2108 Coastal Drift", bay: "7", slot: "8" },
+  { collection: "Mystic Estates", size: "9x60", color: "2107 Nomadic Brown", bay: "7", slot: "9" },
+  { collection: "Barbary Coast", size: "9x72", color: "02116 Sunwashed Oak", bay: "7", slot: "9" },
+  { collection: "Barbary Coast", size: "9x72", color: "02115 Amber Forge Oak", bay: "7", slot: "9" },
+  { collection: "Bandera", size: "7x48", color: "7320 Hazelnut Brown", bay: "7", slot: "10" },
+  { collection: "Barbary Coast", size: "9x72", color: "03048 Ironwood Oak", bay: "7", slot: "10" },
+  { collection: "Bryan Crossing", size: "9x72", color: "02101 Wiltshire Oak", bay: "7", slot: "10" },
+  { collection: "Bryan Crossing", size: "9x72", color: "02099 Southampton Oak", bay: "8", slot: "1" },
+  { collection: "Emerald Hollow", size: "9x72", color: "05026 Blonde Oak", bay: "8", slot: "2" },
+  { collection: "Layton Lake", size: "7x48", color: "1056 Driftwood", bay: "8", slot: "2" },
+  { collection: "Emerald Hollow", size: "9x72", color: "05027 Parchment Oak", bay: "8", slot: "3" },
+  { collection: "Heartland Ranch", size: "9x60", color: "7328 Rich Cocoa", bay: "8", slot: "3" },
+  { collection: "Del Oro Point", size: "7x59", color: "2141 Universal Umber", bay: "8", slot: "4" },
+  { collection: "Bryan Crossing", size: "9x72", color: "02095 Bastion Elm", bay: "8", slot: "4" },
+  { collection: "Belinna Falls", size: "9x60", color: "2138 Arches", bay: "8", slot: "5" },
+  { collection: "Tortosa Ridge", size: "9x72", color: "6042 Amberwood", bay: "8", slot: "5" },
+  { collection: "Heartland Ranch", size: "9x60", color: "7325 Nutmeg", bay: "8", slot: "6" },
+  { collection: "Heartland Ranch", size: "9x60", color: "7326 Homespun Brown", bay: "8", slot: "6" },
+  { collection: "Mystic Estates", size: "9x60", color: "2109 Woodland Truffle", bay: "8", slot: "7" },
+  { collection: "Rio Duvall", size: "9x72", color: "5180 Dwell", bay: "8", slot: "7" },
+  { collection: "Barbary Coast", size: "9x72", color: "03047 Deep Woods Oak", bay: "8", slot: "7" },
+  { collection: "Rio Duvall", size: "9x72", color: "6030 Legend", bay: "8", slot: "8" },
+  { collection: "Barbary Coast", size: "9x72", color: "03049 Deep Hallow Oak", bay: "8", slot: "8" },
+  { collection: "Emerald Hollow", size: "9x72", color: "03019 Midnight Oak", bay: "8", slot: "9" },
+  { collection: "Mystic Estates", size: "9x60", color: "7331 Trailblazer Brown", bay: "8", slot: "9" },
+  { collection: "Bandera", size: "7x48", color: "7321 Burnt Umber", bay: "8", slot: "10" },
+  { collection: "Heartland Ranch", size: "9x60", color: "7329 Natural Umber", bay: "9", slot: "1" },
+  { collection: "Belinna Falls", size: "9x60", color: "7364 Denali", bay: "9", slot: "1" },
+  { collection: "Emerald Hollow", size: "9x72", color: "04028 Mist Oak", bay: "9", slot: "2" },
+  { collection: "Mystic Estates", size: "9x60", color: "7330 Frontier Brown", bay: "9", slot: "2" },
+  { collection: "Rio Duvall", size: "9x72", color: "5179 Journal", bay: "9", slot: "3" },
+  { collection: "Tortosa Ridge", size: "9x72", color: "1180 Shaded White", bay: "9", slot: "4" },
+  { collection: "Del Oro Point", size: "7x59", color: "7317 Driftwood Taupe", bay: "9", slot: "4" },
+  { collection: "Bandera", size: "7x48", color: "7064 Light Pine", bay: "9", slot: "5" },
+  { collection: "Bandera", size: "7x48", color: "5079 Executive Oak", bay: "9", slot: "5" },
+  { collection: "Del Oro Point", size: "7x59", color: "7369 Brown Bark", bay: "9", slot: "5" },
+  { collection: "Emerald Hollow", size: "9x72", color: "03021 Vintage Taupe Ash", bay: "9", slot: "6" },
+  { collection: "Bryan Crossing", size: "9x72", color: "02097 Berkshire Elm", bay: "9", slot: "7" },
+  { collection: "Layton Lake", size: "7x48", color: "5218 Toasted Taupe", bay: "9", slot: "7" },
+  { collection: "Layton Lake", size: "7x48", color: "5219 Ashen Brown", bay: "9", slot: "8" },
+  { collection: "Tortosa Ridge", size: "9x72", color: "2095 Sand Dune", bay: "9", slot: "8" },
+  { collection: "Heartland Ranch", size: "9x60", color: "5235 Truffle", bay: "9", slot: "9" },
+  { collection: "Mystic Estates", size: "9x60", color: "5237 Uncharted Grey", bay: "9", slot: "9" },
+  { collection: "Mystic Estates", size: "9x60", color: "5236 Summit Grey", bay: "9", slot: "10" },
+  { collection: "Barbary Coast", size: "9x72", color: "03050 Shadow Timber Oak", bay: "9", slot: "10" },
+];
+
+const tileSamples = [
+  { collection: "C.F Advantage-Stella Vista", size: "18x18", color: "SV16 White Canvas", bay: "1", slot: "1" },
+  { collection: "C.F Advantage-Stella Vista", size: "12x24", color: "SV16 White Canvas", bay: "1", slot: "1" },
+  { collection: "C.F Prime", size: "18x18", color: "NS10 Heirloom White", bay: "1", slot: "2" },
+  { collection: "C.F Prime", size: "12x24", color: "NS10 Heirloom White", bay: "1", slot: "2" },
+  { collection: "Portfolio", size: "24x24", color: "PTF01 Ice", bay: "1", slot: "3" },
+  { collection: "Portfolio", size: "24x24", color: "PF02 White", bay: "1", slot: "3" },
+  { collection: "C.F Advantage-LS", size: "12x24", color: "LS40 Washed White", bay: "1", slot: "4" },
+  { collection: "C.F Advantage-LS", size: "18x18", color: "LS40 Washed White", bay: "1", slot: "4" },
+  { collection: "Artsy", size: "12x24", color: "AT31 Studio Carrara Matte", bay: "1", slot: "5" },
+  { collection: "Artsy", size: "24x24", color: "AT31 Studio Carrara Matte", bay: "1", slot: "5" },
+  { collection: "Artsy", size: "12x24", color: "AT31 Studio Carrara Polished", bay: "1", slot: "5" },
+  { collection: "Artsy", size: "24x24", color: "AT31 Studio Carrara Polished", bay: "1", slot: "5" },
+  { collection: "Florentine", size: "12x24", color: "FL06 Carrara Matte", bay: "1", slot: "6" },
+  { collection: "Florentine", size: "24x24", color: "FL06 Carrara Matte", bay: "1", slot: "6" },
+  { collection: "Perpetuo", size: "12x24", color: "PT20 Timeless White Matte", bay: "1", slot: "7" },
+  { collection: "Perpetuo", size: "24x24", color: "PT20 Timeless White Matte", bay: "1", slot: "7" },
+  { collection: "Perpetuo", size: "12x24", color: "PT20 Timeless White Polished", bay: "1", slot: "7" },
+  { collection: "Perpetuo", size: "24x24", color: "PT20 Timeless White Polished", bay: "1", slot: "7" },
+  { collection: "Perpetuo", size: "12x24", color: "PT21 Brilliant White Matte", bay: "1", slot: "8" },
+  { collection: "Perpetuo", size: "24x24", color: "PT21 Brilliant White Matte", bay: "1", slot: "8" },
+  { collection: "Perpetuo", size: "12x24", color: "PT21 Brilliant White Polished", bay: "1", slot: "9" },
+  { collection: "Perpetuo", size: "24x24", color: "PT21 Brilliant White Polished", bay: "1", slot: "9" },
+  { collection: "Artsy", size: "12x24", color: "AT32 Gallery Pearl Polished", bay: "1", slot: "10" },
+  { collection: "Artsy", size: "24x24", color: "AT32 Gallery Pearl Polished", bay: "1", slot: "10" },
+  { collection: "Artsy", size: "12x24", color: "AT32 Gallery Pearl Matte", bay: "2", slot: "1" },
+  { collection: "Artsy", size: "24x24", color: "AT32 Gallery Pearl Matte", bay: "2", slot: "1" },
+  { collection: "Articulo", size: "12x24", color: "AR06 Editorial White Polished", bay: "2", slot: "2" },
+  { collection: "Articulo", size: "12x24", color: "AR06 Editorial White Matte", bay: "2", slot: "2" },
+  { collection: "C.F Prime", size: "18x18", color: "NS11 Lineage Griege", bay: "2", slot: "3" },
+  { collection: "C.F Prime", size: "12x24", color: "NS11 Lineage Griege", bay: "2", slot: "3" },
+  { collection: "Articulo", size: "12x24", color: "AR09 Column Grey Matte", bay: "2", slot: "4" },
+  { collection: "Articulo", size: "12x24", color: "AR09 Column Grey Polished", bay: "2", slot: "4" },
+  { collection: "C.F Advantage-Stella Vista", size: "18x18", color: "SV17 Golden Sand", bay: "2", slot: "5" },
+  { collection: "C.F Advantage-Stella Vista", size: "12x24", color: "SV17 Golden Sand", bay: "2", slot: "5" },
+  { collection: "Alterations", size: "12x24", color: "AT62 Linen", bay: "2", slot: "6" },
+  { collection: "Perpetuo", size: "12x24", color: "PT22 Elegant Beige Matte", bay: "2", slot: "7" },
+  { collection: "Perpetuo", size: "24x24", color: "PT22 Elegant Beige Matte", bay: "2", slot: "7" },
+  { collection: "Perpetuo", size: "12x24", color: "PT22 Elegant Beige Polished", bay: "2", slot: "8" },
+  { collection: "Perpetuo", size: "24x24", color: "PT22 Elegant Beige Polished", bay: "2", slot: "8" },
+  { collection: "Articulo", size: "12x24", color: "AR07 Feature Beige Matte", bay: "2", slot: "9" },
+  { collection: "Articulo", size: "12x24", color: "AR07 Feature Beige Polished", bay: "2", slot: "9" },
+  { collection: "Rekindle", size: "12x24", color: "RK11 Beige", bay: "2", slot: "10" },
+  { collection: "Rekindle", size: "24x24", color: "RK11 Beige", bay: "2", slot: "10" },
+  { collection: "Calligo", size: "15x30", color: "CA43 Nimbus", bay: "3", slot: "No Slot" },
+  { collection: "Portfolio", size: "24x24", color: "PF04 Dove Grey", bay: "3", slot: "1" },
+  { collection: "Rekindle", size: "12x24", color: "RK10 White", bay: "3", slot: "1" },
+  { collection: "Rekindle", size: "24x24", color: "RK10 White", bay: "3", slot: "1" },
+  { collection: "Forgehaus", size: "12x24", color: "FH10 Beam", bay: "3", slot: "2" },
+  { collection: "Forgehaus", size: "24x24", color: "FH10 Beam", bay: "3", slot: "2" },
+  { collection: "Coastline", size: "12x12", color: "CO31 Dune", bay: "3", slot: "3" },
+  { collection: "Coastline", size: "18x18", color: "CO31 Dune", bay: "3", slot: "3" },
+  { collection: "Coastline", size: "12x24", color: "CO31 Dune", bay: "3", slot: "3" },
+  { collection: "C.F Advantage LS", size: "18x18", color: "LS41 Distressed Beige", bay: "3", slot: "4" },
+  { collection: "C.F Advantage LS", size: "12x24", color: "LS41 Distressed Beige", bay: "3", slot: "4" },
+  { collection: "Balans", size: "12x24", color: "BA30 White Matte", bay: "3", slot: "5" },
+  { collection: "Balans", size: "18x18", color: "BA30 White Matte", bay: "3", slot: "5" },
+  { collection: "C.F Advantage - Stella Vista", size: "18x18", color: "SV18 Cement Grey", bay: "3", slot: "6" },
+  { collection: "C.F Advantage - Stella Vista", size: "12x24", color: "SV18 Cement Grey", bay: "3", slot: "6" },
+  { collection: "C.F Advantage LS", size: "12x24", color: "LS42 Aged Grey", bay: "3", slot: "7" },
+  { collection: "C.F Advantage LS", size: "18x18", color: "LS42 Aged Grey", bay: "3", slot: "7" },
+  { collection: "C.F Prime", size: "18x18", color: "NS12 Historic Grey", bay: "3", slot: "8" },
+  { collection: "C.F Prime", size: "12x24", color: "NS12 Historic Grey", bay: "3", slot: "8" },
+  { collection: "Portfolio", size: "24x24", color: "PF05 Ash Grey", bay: "3", slot: "8" },
+  { collection: "Rekindle", size: "12x24", color: "RK12 Light Gray", bay: "3", slot: "9" },
+  { collection: "Rekindle", size: "24x24", color: "RK12 Light Gray", bay: "3", slot: "9" },
+  { collection: "Forgehaus", size: "12x24", color: "FH11 Terra", bay: "3", slot: "9" },
+  { collection: "Forgehaus", size: "24x24", color: "FH11 Terra", bay: "3", slot: "9" },
+  { collection: "Coastline", size: "12x12", color: "CO32 Isle", bay: "3", slot: "10" },
+  { collection: "Coastline", size: "18x18", color: "CO32 Isle", bay: "3", slot: "10" },
+  { collection: "Coastline", size: "12x24", color: "CO32 Isle", bay: "3", slot: "10" },
+  { collection: "Forgehaus", size: "12x24", color: "FH12 Chroma", bay: "4", slot: "1" },
+  { collection: "Forgehaus", size: "24x24", color: "FH12 Chroma", bay: "4", slot: "1" },
+  { collection: "Alterations", size: "12x24", color: "AT63 Light Thread", bay: "4", slot: "2" },
+  { collection: "Alterations", size: "12x24", color: "AT64 Woven Slate", bay: "4", slot: "2" },
+  { collection: "Alterations", size: "12x24", color: "AT61 Cotton", bay: "4", slot: "2" },
+  { collection: "Perpetuo", size: "12x24", color: "PT23 Eternal Gray Polished", bay: "4", slot: "3" },
+  { collection: "Perpetuo", size: "24x24", color: "PT23 Eternal Gray Polished", bay: "4", slot: "3" },
+  { collection: "Perpetuo", size: "24x24", color: "PT23 Eternal Gray Matte", bay: "4", slot: "3" },
+  { collection: "Rekindle", size: "12x24", color: "RK13 Medium Gray", bay: "4", slot: "4" },
+  { collection: "Rekindle", size: "24x24", color: "RK13 Medium Gray", bay: "4", slot: "4" },
+  { collection: "Vertuo", size: "12x24", color: "VR12 Bravura Matte", bay: "4", slot: "5" },
+  { collection: "Forgehaus", size: "12x24", color: "FH13 Basalt", bay: "4", slot: "6" },
+  { collection: "Forgehaus", size: "24x24", color: "FH13 Basalt", bay: "4", slot: "6" },
+  { collection: "Portfolio", size: "24x24", color: "PF09 Charcoal", bay: "4", slot: "7" },
+  { collection: "Balans", size: "12x24", color: "BA34 Charcoal", bay: "4", slot: "8" },
+  { collection: "Balans", size: "18x18", color: "BA34 Charcoal", bay: "4", slot: "8" },
+  { collection: "Perpetuo", size: "12x24", color: "PT24 Infinite Black Matte", bay: "4", slot: "9" },
+  { collection: "Perpetuo", size: "12x24", color: "PT24 Infinite Black Polished", bay: "4", slot: "9" },
+  { collection: "Perpetuo", size: "24x24", color: "PT24 Infinite Black Matte", bay: "4", slot: "9" },
+  { collection: "Perpetuo", size: "24x24", color: "PT24 Infinite Black Polished", bay: "4", slot: "9" },
+  { collection: "Rekindle", size: "12x24", color: "RK14 Terracotta", bay: "4", slot: "10" },
+  { collection: "Rekindle", size: "24x24", color: "RK14 Terracotta", bay: "4", slot: "10" },
+  { collection: "Memoir", size: "12x12", color: "ME27 Jewel Black", bay: "5", slot: "1" },
+  { collection: "Memoir", size: "12x12", color: "ME24 Crystal Gray", bay: "5", slot: "1" },
+  { collection: "Memoir", size: "12x12", color: "ME25 Crytsal Black", bay: "5", slot: "1" },
+  { collection: "Memoir", size: "12x12", color: "ME28 Cosmo Gray", bay: "5", slot: "1" },
+  { collection: "Memoir", size: "12x12", color: "ME29 Cosmo Blue", bay: "5", slot: "1" },
+  { collection: "Memoir", size: "12x12", color: "ME21 Petal Black", bay: "5", slot: "1" },
+  { collection: "Memoir", size: "12x12", color: "ME20 Petal Gray", bay: "5", slot: "1" },
+  { collection: "Perpetuo", size: "8\" Hex", color: "PT20 Timeless White", bay: "5", slot: "2" },
+  { collection: "Perpetuo", size: "8\" Hex", color: "PT21 Brillant White", bay: "5", slot: "2" },
+  { collection: "Marble Obsession", size: "8\" Hex", color: "MB21 Calacatta Gold", bay: "5", slot: "2" },
+  { collection: "Marble Obsession", size: "8\" Hex", color: "MB22 Grigio", bay: "5", slot: "2" },
+  { collection: "Moroccan Concrete", size: "8\" Hex", color: "MC56 Terra Cotta", bay: "5", slot: "2" },
+  { collection: "Moroccan Concrete", size: "8\" Hex", color: "MC55 Ochre", bay: "5", slot: "2" },
+  { collection: "Moroccan Concrete", size: "8\" Hex", color: "MC53 Light Moss", bay: "5", slot: "2" },
+  { collection: "Moroccan Concrete", size: "8\" Hex", color: "MC54 Blue Gray", bay: "5", slot: "2" },
+  { collection: "Perpetuo", size: "8\" Hex", color: "PT23 Eternal Gray", bay: "5", slot: "3" },
+  { collection: "Perpetuo", size: "8\" Hex", color: "PT22 Elegant Beige", bay: "5", slot: "3" },
+  { collection: "Perpetuo", size: "8\" Hex", color: "PT24 Infinite Black", bay: "5", slot: "3" },
+  { collection: "Moroccan Concrete", size: "8\" Hex", color: "MC51 Taupe", bay: "5", slot: "3" },
+  { collection: "Moroccan Concrete", size: "8\" Hex", color: "MC50 Off White", bay: "5", slot: "3" },
+  { collection: "Moroccan Concrete", size: "8\" Hex", color: "MC57 Charcoal", bay: "5", slot: "3" },
+  { collection: "Moroccan Concrete", size: "8\" Hex", color: "MC52 Gray", bay: "5", slot: "3" },
+  { collection: "Marble Obsession", size: "12x24\"", color: "MB21 Calacatta Gold Polished", bay: "5", slot: "4" },
+  { collection: "Marble Obsession", size: "12x24\"", color: "MB21 Calacatta Gold Matte", bay: "5", slot: "4" },
+  { collection: "Vertuo", size: "12x24\"", color: "VR10 Maestro", bay: "5", slot: "5" },
+  { collection: "Vertuo", size: "12x24\"", color: "VR11 Composer", bay: "5", slot: "6" },
+  { collection: "Marble Obsession", size: "12x24\"", color: "MB22 Grigio", bay: "5", slot: "6" },
+  { collection: "Marble Obsession", size: "12x24\"", color: "MB 22 Grigio Polished", bay: "5", slot: "7" },
+  { collection: "EDGEWOOD", size: "6x24", color: "EW01 Stone", bay: "5", slot: "8" },
+  { collection: "EDGEWOOD", size: "6x24", color: "EW02 Steel", bay: "5", slot: "8" },
+  { collection: "C.F Platinum-Vicinity", size: "6x36", color: "VC01 White", bay: "5", slot: "8" },
+  { collection: "C.F Platinum-Vicinity", size: "6x36", color: "VC02 Natural", bay: "5", slot: "9" },
+  { collection: "C.F Platinum-Vicinity", size: "6x36", color: "VC05 Gray Brown", bay: "5", slot: "9" },
+  { collection: "C.F Platinum-Vicinity", size: "6x36", color: "VC03 Honey", bay: "5", slot: "9" },
+  { collection: "EDGEWOOD", size: "6x24", color: "EW03 Boulder", bay: "5", slot: "10" },
+  { collection: "C.F Platinum-Vicinity", size: "6x36", color: "VC04 Brown", bay: "5", slot: "10" },
+  { collection: "EDGEWOOD", size: "6x24", color: "EW04 Graphite", bay: "5", slot: "10" },
+];
+
+// The website combines the three easy-to-edit lists above automatically.
+const samples = [
+  ...carpetSamples.map(x => ({
+    material: "Carpet",
+    collection: x.collection,
+    color: x.color,
+    size: "",
+    bay: x.bay,
+    locationType: "Shelf",
+    location: x.shelf
+  })),
+  ...lvpSamples.map(x => ({
+    material: "LVP & Wood",
+    collection: x.collection,
+    color: x.color,
+    size: x.size,
+    bay: x.bay,
+    locationType: "Slot",
+    location: x.slot
+  })),
+  ...tileSamples.map(x => ({
+    material: "Tile",
+    collection: x.collection,
+    color: x.color,
+    size: x.size,
+    bay: x.bay,
+    locationType: "Slot",
+    location: x.slot
+  }))
+];
+// ============================================================
+
+let selectedMaterial = "";
+let visibleMatches = [];
+let focusedIndex = -1;
+
+const search = document.getElementById("search");
+const dropdown = document.getElementById("dropdown");
+const result = document.getElementById("result");
+
+function normalize(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function searchText(item) {
+  return normalize([item.collection, item.color, item.size].join(" "));
+}
+
+function chooseMaterial(material, button) {
+  selectedMaterial = material;
+  document.querySelectorAll(".material-btn").forEach(b => b.classList.remove("active"));
+  button.classList.add("active");
+
+  search.disabled = false;
+  search.value = "";
+  search.placeholder = `Search ${material}…`;
+  dropdown.innerHTML = "";
+  dropdown.classList.remove("show");
+  result.classList.remove("show");
+  search.focus();
+}
+
+document.querySelectorAll(".material-btn").forEach(button => {
+  button.addEventListener("click", () => chooseMaterial(button.dataset.material, button));
+});
+
+function renderMatches() {
+  if (!selectedMaterial) return;
+
+  const q = normalize(search.value);
+  const pool = samples.filter(x => x.material === selectedMaterial);
+
+  visibleMatches = pool.filter(item => {
+    if (!q) return true;
+    const words = q.split(" ");
+    const hay = searchText(item);
+    return words.every(word => hay.includes(word));
+  }).slice(0, 40);
+
+  focusedIndex = -1;
+  dropdown.innerHTML = "";
+
+  if (!visibleMatches.length) {
+    dropdown.innerHTML = '<div class="no-results">No matching samples found.</div>';
+    dropdown.classList.add("show");
+    return;
+  }
+
+  visibleMatches.forEach((item, index) => {
+    const btn = document.createElement("button");
+    btn.className = "option";
+    btn.type = "button";
+
+    const main = document.createElement("div");
+    main.className = "option-main";
+    main.textContent = `${item.collection} — ${item.color}`;
+
+    const sub = document.createElement("div");
+    sub.className = "option-sub";
+    const pieces = [];
+    if (item.size) pieces.push(item.size);
+    pieces.push(`Bay ${item.bay}`);
+    pieces.push(`${item.locationType} ${item.location}`);
+    sub.textContent = pieces.join(" • ");
+
+    btn.append(main, sub);
+    btn.addEventListener("click", () => selectItem(item));
+    dropdown.appendChild(btn);
+  });
+
+  dropdown.classList.add("show");
+}
+
+function selectItem(item) {
+  search.value = `${item.collection} — ${item.color}`;
+  dropdown.classList.remove("show");
+
+  document.getElementById("resultMaterial").textContent = item.material;
+  document.getElementById("resultName").textContent = item.collection;
+  document.getElementById("resultDetail").textContent =
+    [item.size, item.color].filter(Boolean).join(" • ");
+  document.getElementById("resultBay").textContent = item.bay;
+  document.getElementById("locationLabel").textContent = item.locationType;
+  document.getElementById("resultLocation").textContent = item.location;
+
+  result.classList.add("show");
+}
+
+search.addEventListener("input", () => {
+  result.classList.remove("show");
+  renderMatches();
+});
+
+search.addEventListener("focus", () => {
+  if (selectedMaterial) renderMatches();
+});
+
+search.addEventListener("keydown", (event) => {
+  const options = [...dropdown.querySelectorAll(".option")];
+  if (!options.length) return;
+
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    focusedIndex = Math.min(focusedIndex + 1, options.length - 1);
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    focusedIndex = Math.max(focusedIndex - 1, 0);
+  } else if (event.key === "Enter" && focusedIndex >= 0) {
+    event.preventDefault();
+    options[focusedIndex].click();
+    return;
+  } else if (event.key === "Escape") {
+    dropdown.classList.remove("show");
+    return;
+  } else {
+    return;
+  }
+
+  options.forEach((o,i) => o.classList.toggle("focused", i === focusedIndex));
+  options[focusedIndex]?.scrollIntoView({block:"nearest"});
+});
+
+document.addEventListener("click", event => {
+  if (!event.target.closest(".search-wrap")) dropdown.classList.remove("show");
+});
+</script>
+</body>
+</html>
